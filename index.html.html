@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Algorithm Visualizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#12141c; --panel:#191c28; --panel2:#1f2333; --border:#2a2f42;
+  --text:#e6e8f0; --muted:#8890a6;
+  --compare:#f2b84b; --active:#6d8cff; --sorted:#56c98e; --visit:#ff6f91; --frontier:#6d8cff;
+  --mono:'IBM Plex Mono',ui-monospace,monospace; --sans:'Inter',system-ui,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){ --bg:#f4f5f8; --panel:#fff; --panel2:#eef0f6; --border:#dbdfe9; --text:#171a24; --muted:#5b6178; }
+}
+*{box-sizing:border-box;}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+html,body{height:100%;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-font-smoothing:antialiased;}
+.wrap{max-width:900px;margin:0 auto;padding:28px 18px 40px;}
+h1{font-family:var(--mono);font-size:22px;font-weight:700;margin:0 0 4px;letter-spacing:-0.01em;}
+.sub{color:var(--muted);font-size:14px;margin:0 0 22px;line-height:1.5;}
+.algo-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;}
+.algo-btn{
+  font-family:var(--mono);font-size:13px;padding:9px 14px;border-radius:8px;
+  border:1px solid var(--border);background:var(--panel);color:var(--muted);cursor:pointer;
+  transition:border-color .15s,color .15s,background .15s;
+}
+.algo-btn:hover{color:var(--text);}
+.algo-btn.on{background:var(--panel2);color:var(--text);border-color:var(--active);}
+.stage{
+  background:var(--panel);border:1px solid var(--border);border-radius:12px;
+  padding:18px;min-height:300px;display:flex;flex-direction:column;justify-content:center;
+  overflow-x:auto;
+}
+.bars{display:flex;align-items:flex-end;gap:3px;height:260px;justify-content:center;}
+.bar{width:22px;border-radius:3px 3px 0 0;background:var(--active);position:relative;transition:height .2s,background .15s;flex:0 0 auto;}
+.bar span{position:absolute;bottom:-20px;left:0;right:0;text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);}
+.graph-svg{width:100%;height:280px;}
+.node-circle{transition:fill .2s,stroke .2s;}
+.node-label{font-family:var(--mono);font-size:12px;fill:var(--text);text-anchor:middle;dominant-baseline:middle;pointer-events:none;}
+.edge{stroke:var(--border);stroke-width:2;transition:stroke .2s,stroke-width .2s;}
+.status{
+  font-family:var(--mono);font-size:13px;color:var(--muted);min-height:20px;margin-top:14px;text-align:center;
+}
+.controls{display:flex;align-items:center;gap:10px;margin-top:18px;flex-wrap:wrap;justify-content:center;}
+.ctrl-btn{
+  font-family:var(--mono);font-size:14px;width:44px;height:44px;border-radius:50%;
+  border:1px solid var(--border);background:var(--panel);color:var(--text);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:border-color .15s,background .15s;
+}
+.ctrl-btn:hover{border-color:var(--active);}
+.ctrl-btn:disabled{opacity:.35;cursor:default;}
+.ctrl-btn.play{background:var(--active);border-color:var(--active);color:#0c0e14;}
+.speed-wrap{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--muted);}
+input[type=range]{width:110px;accent-color:var(--active);}
+.new-data{
+  font-family:var(--mono);font-size:12px;padding:8px 12px;border-radius:8px;border:1px solid var(--border);
+  background:transparent;color:var(--muted);cursor:pointer;
+}
+.new-data:hover{color:var(--text);border-color:var(--active);}
+.legend{display:flex;gap:16px;justify-content:center;margin-top:14px;flex-wrap:wrap;}
+.legend-item{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--muted);}
+.dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Algorithm Visualizer</h1>
+  <p class="sub">Pick an algorithm, then press play. Bars and nodes color-code what's being compared, visited, or settled.</p>
+
+  <div class="algo-row" id="algoRow"></div>
+
+  <div class="stage" id="stage"></div>
+  <div class="status" id="status">Ready.</div>
+
+  <div class="controls">
+    <button class="ctrl-btn" id="resetBtn" title="Reset">↻</button>
+    <button class="ctrl-btn play" id="playBtn" title="Play/Pause">▶</button>
+    <div class="speed-wrap">
+      <span>speed</span>
+      <input type="range" id="speed" min="1" max="10" value="6">
+    </div>
+    <button class="new-data" id="newData">New data</button>
+  </div>
+
+  <div class="legend" id="legend"></div>
+</div>
+
+<script>
+const ALGOS = [
+  {id:'bubble', name:'Bubble Sort', kind:'array'},
+  {id:'merge', name:'Merge Sort', kind:'array'},
+  {id:'binary', name:'Binary Search', kind:'array'},
+  {id:'bfs', name:'BFS', kind:'graph'},
+  {id:'dfs', name:'DFS', kind:'graph'},
+];
+const COLORS = {compare:'var(--compare)', active:'var(--active)', sorted:'var(--sorted)', visit:'var(--visit)', frontier:'var(--frontier)', idle:'var(--active)'};
+
+let current = 'bubble';
+let arr = [];
+let target = null;
+let steps = [];
+let stepIdx = 0;
+let playing = false;
+let timer = null;
+let graph = null;
+
+const stage = document.getElementById('stage');
+const statusEl = document.getElementById('status');
+const playBtn = document.getElementById('playBtn');
+const resetBtn = document.getElementById('resetBtn');
+const speedEl = document.getElementById('speed');
+const algoRow = document.getElementById('algoRow');
+const legendEl = document.getElementById('legend');
+
+function randArr(n=18){ return Array.from({length:n},()=>10+Math.floor(Math.random()*90)); }
+
+function buildGraph(){
+  // fixed layout: 10 nodes on two rings
+  const nodes = [
+    {id:0,x:450,y:40},{id:1,x:320,y:90},{id:2,x:580,y:90},{id:3,x:200,y:170},
+    {id:4,x:400,y:170},{id:5,x:500,y:170},{id:6,x:700,y:170},{id:7,x:150,y:250},
+    {id:8,x:350,y:250},{id:9,x:620,y:250}
+  ];
+  const edges = [[0,1],[0,2],[1,3],[1,4],[2,5],[2,6],[3,7],[4,8],[5,9],[4,5],[1,2]];
+  const adj = {}; nodes.forEach(n=>adj[n.id]=[]);
+  edges.forEach(([a,b])=>{adj[a].push(b); adj[b].push(a);});
+  Object.values(adj).forEach(l=>l.sort((a,b)=>a-b));
+  return {nodes, edges, adj};
+}
+
+function setAlgo(id){
+  current = id;
+  document.querySelectorAll('.algo-btn').forEach(b=>b.classList.toggle('on', b.dataset.id===id));
+  buildLegend();
+  reset();
+}
+
+function buildLegend(){
+  const kind = ALGOS.find(a=>a.id===current).kind;
+  const items = kind==='array'
+    ? [['compare','comparing'],['active','pointer'],['sorted','placed / found']]
+    : [['frontier','in queue / stack'],['visit','visiting'],['sorted','visited']];
+  legendEl.innerHTML = items.map(([c,l])=>`<div class="legend-item"><span class="dot" style="background:${COLORS[c]}"></span>${l}</div>`).join('');
+}
+
+// ---------- STEP GENERATORS ----------
+function genBubble(a){
+  a = a.slice(); const s = [];
+  const n = a.length;
+  for(let i=0;i<n-1;i++){
+    for(let j=0;j<n-1-i;j++){
+      s.push({arr:a.slice(), cmp:[j,j+1], msg:`Comparing index ${j} and ${j+1}`});
+      if(a[j]>a[j+1]){ [a[j],a[j+1]]=[a[j+1],a[j]]; s.push({arr:a.slice(), cmp:[j,j+1], swap:true, msg:`Swapping index ${j} and ${j+1}`}); }
+    }
+    s.push({arr:a.slice(), sorted:n-1-i, msg:`Index ${n-1-i} is now in place`});
+  }
+  s.push({arr:a.slice(), sortedAll:true, msg:'Sorted!'});
+  return s;
+}
+
+function genMerge(a){
+  a = a.slice(); const s = [];
+  function merge(lo,mid,hi){
+    let left=a.slice(lo,mid+1), right=a.slice(mid+1,hi+1);
+    let i=0,j=0,k=lo;
+    while(i<left.length && j<right.length){
+      s.push({arr:a.slice(), cmp:[k], msg:`Merging: comparing ${left[i]} and ${right[j]}`});
+      if(left[i]<=right[j]) a[k++]=left[i++]; else a[k++]=right[j++];
+      s.push({arr:a.slice(), active:[k-1], msg:`Placed ${a[k-1]} at index ${k-1}`});
+    }
+    while(i<left.length){ a[k++]=left[i++]; s.push({arr:a.slice(), active:[k-1], msg:`Placed ${a[k-1]} at index ${k-1}`}); }
+    while(j<right.length){ a[k++]=right[j++]; s.push({arr:a.slice(), active:[k-1], msg:`Placed ${a[k-1]} at index ${k-1}`}); }
+  }
+  function ms(lo,hi){
+    if(lo>=hi) return;
+    const mid = Math.floor((lo+hi)/2);
+    ms(lo,mid); ms(mid+1,hi); merge(lo,mid,hi);
+  }
+  ms(0,a.length-1);
+  s.push({arr:a.slice(), sortedAll:true, msg:'Sorted!'});
+  return s;
+}
+
+function genBinary(a){
+  a = a.slice().sort((x,y)=>x-y);
+  target = a[Math.floor(Math.random()*a.length)];
+  const s = []; let lo=0, hi=a.length-1; let found=-1;
+  while(lo<=hi){
+    const mid = Math.floor((lo+hi)/2);
+    s.push({arr:a.slice(), range:[lo,hi], active:[mid], msg:`Checking middle index ${mid} (value ${a[mid]}) against target ${target}`});
+    if(a[mid]===target){ found=mid; break; }
+    else if(a[mid]<target){ lo=mid+1; } else { hi=mid-1; }
+  }
+  s.push({arr:a.slice(), sorted: found>=0?found:null, msg: found>=0?`Found ${target} at index ${found}!`:`${target} not found`});
+  return s;
+}
+
+function genTraversal(kind){
+  const g = graph; const s = []; const visited = new Set(); const order=[];
+  if(kind==='bfs'){
+    const q=[0]; visited.add(0);
+    s.push({visited:new Set(visited), frontier:[...q], current:null, msg:'Start: node 0 added to queue'});
+    while(q.length){
+      const cur = q.shift();
+      s.push({visited:new Set(visited), frontier:[...q], current:cur, msg:`Visiting node ${cur}`});
+      order.push(cur);
+      for(const nb of g.adj[cur]){
+        if(!visited.has(nb)){ visited.add(nb); q.push(nb); s.push({visited:new Set(visited), frontier:[...q], current:cur, msg:`Discovered node ${nb}, added to queue`}); }
+      }
+    }
+  } else {
+    const stack=[0];
+    s.push({visited:new Set(visited), frontier:[...stack], current:null, msg:'Start: node 0 pushed to stack'});
+    while(stack.length){
+      const cur = stack.pop();
+      if(visited.has(cur)) continue;
+      visited.add(cur);
+      s.push({visited:new Set(visited), frontier:[...stack], current:cur, msg:`Visiting node ${cur}`});
+      for(const nb of g.adj[cur].slice().reverse()){
+        if(!visited.has(nb)){ stack.push(nb); s.push({visited:new Set(visited), frontier:[...stack], current:cur, msg:`Pushed node ${nb} to stack`}); }
+      }
+    }
+  }
+  s.push({visited:new Set(visited), frontier:[], current:null, msg:'Traversal complete', done:true});
+  return s;
+}
+
+// ---------- RENDER ----------
+function renderArrayStage(){
+  const max = Math.max(...arr, 10);
+  stage.innerHTML = `<div class="bars">${arr.map((v,i)=>`<div class="bar" data-i="${i}" style="height:${(v/max*220)}px"><span>${v}</span></div>`).join('')}</div>`;
+}
+
+function paintArrayStep(st){
+  const bars = stage.querySelectorAll('.bar');
+  st.arr.forEach((v,i)=>{ if(bars[i]) bars[i].style.height = (v/(Math.max(...st.arr,10))*220)+'px'; bars[i] && (bars[i].querySelector('span').textContent=v); });
+  bars.forEach((b,i)=>{
+    let c = 'var(--active)';
+    if(st.sortedAll) c='var(--sorted)';
+    else if(st.sorted===i) c='var(--sorted)';
+    else if(st.cmp && st.cmp.includes(i)) c='var(--compare)';
+    else if(st.active && st.active.includes(i)) c='var(--active)';
+    else if(st.range && (i<st.range[0]||i>st.range[1])) c='var(--border)';
+    b.style.background = c;
+  });
+}
+
+function renderGraphStage(){
+  const g = graph;
+  const edges = g.edges.map(([a,b])=>{
+    const na=g.nodes.find(n=>n.id===a), nb=g.nodes.find(n=>n.id===b);
+    return `<line class="edge" data-a="${a}" data-b="${b}" x1="${na.x}" y1="${na.y}" x2="${nb.x}" y2="${nb.y}"/>`;
+  }).join('');
+  const nodes = g.nodes.map(n=>`<circle class="node-circle" data-i="${n.id}" cx="${n.x}" cy="${n.y}" r="20" fill="var(--panel2)" stroke="var(--border)" stroke-width="2"/><text class="node-label" x="${n.x}" y="${n.y}">${n.id}</text>`).join('');
+  stage.innerHTML = `<svg class="graph-svg" viewBox="0 0 760 290">${edges}${nodes}</svg>`;
+}
+
+function paintGraphStep(st){
+  stage.querySelectorAll('.node-circle').forEach(c=>{
+    const i = +c.dataset.i;
+    let fill = 'var(--panel2)', stroke='var(--border)';
+    if(st.done && st.visited.has(i)){ fill='var(--sorted)'; stroke='var(--sorted)'; }
+    else if(st.current===i){ fill='var(--visit)'; stroke='var(--visit)'; }
+    else if(st.frontier && st.frontier.includes(i)){ fill='var(--frontier)'; stroke='var(--frontier)'; }
+    else if(st.visited.has(i)){ fill='var(--sorted)'; stroke='var(--sorted)'; }
+    c.setAttribute('fill', fill); c.setAttribute('stroke', stroke);
+  });
+}
+
+function paint(){
+  const st = steps[stepIdx];
+  if(!st){ return; }
+  const kind = ALGOS.find(a=>a.id===current).kind;
+  if(kind==='array') paintArrayStep(st); else paintGraphStep(st);
+  statusEl.textContent = st.msg || '';
+}
+
+function buildSteps(){
+  const a = arr;
+  if(current==='bubble') steps = genBubble(a);
+  else if(current==='merge') steps = genMerge(a);
+  else if(current==='binary') steps = genBinary(a);
+  else if(current==='bfs') steps = genTraversal('bfs');
+  else steps = genTraversal('dfs');
+}
+
+function reset(){
+  pause();
+  const kind = ALGOS.find(a=>a.id===current).kind;
+  stepIdx = 0;
+  if(kind==='array'){ renderArrayStage(); }
+  else { renderGraphStage(); }
+  buildSteps();
+  statusEl.textContent = current==='binary' ? `Searching for ${target} in a sorted array. Press play.` : 'Ready. Press play.';
+  playBtn.textContent = '▶';
+  resetBtn.disabled = false;
+}
+
+function play(){
+  if(stepIdx>=steps.length-1) stepIdx=0;
+  playing = true; playBtn.textContent='⏸';
+  const delay = 650 - (speedEl.value*55);
+  timer = setInterval(()=>{
+    stepIdx++;
+    if(stepIdx>=steps.length){ stepIdx=steps.length-1; pause(); return; }
+    paint();
+  }, Math.max(delay,60));
+}
+function pause(){ playing=false; clearInterval(timer); playBtn.textContent='▶'; }
+
+playBtn.addEventListener('click', ()=>{ playing ? pause() : play(); });
+resetBtn.addEventListener('click', reset);
+document.getElementById('newData').addEventListener('click', ()=>{ arr = randArr(); reset(); });
+speedEl.addEventListener('change', ()=>{ if(playing){ pause(); play(); } });
+
+algoRow.innerHTML = ALGOS.map(a=>`<button class="algo-btn" data-id="${a.id}">${a.name}</button>`).join('');
+algoRow.querySelectorAll('.algo-btn').forEach(b=>b.addEventListener('click',()=>setAlgo(b.dataset.id)));
+
+arr = randArr();
+graph = buildGraph();
+setAlgo('bubble');
+</script>
+</body>
+</html>
