@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Algorithm Visualizer</title>
+<style>
+  :root{
+    --bg:#070b14;
+    --panel:rgba(18,25,40,.78);
+    --panel2:rgba(25,34,53,.72);
+    --border:rgba(148,163,184,.16);
+    --text:#f4f7fb;
+    --muted:#9aa8bd;
+    --accent:#67a4ff;
+    --accent2:#8b7cff;
+    --yellow:#ffd35a;
+    --green:#54e09b;
+    --red:#ff7185;
+    --cyan:#62d8ff;
+    --shadow:0 18px 55px rgba(0,0,0,.34);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:
+    radial-gradient(circle at 15% 10%,rgba(75,113,255,.16),transparent 30%),
+    radial-gradient(circle at 85% 15%,rgba(137,78,255,.13),transparent 28%),
+    var(--bg);color:var(--text)}
+  body{padding:22px}
+  button{font:inherit}
+  .app{width:min(1450px,100%);margin:auto}
+  .topbar{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;margin-bottom:18px}
+  .eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:800}
+  h1{font-size:clamp(28px,3vw,43px);margin:5px 0 4px;line-height:1.05}
+  .subtitle{color:var(--muted);font-size:14px}
+  .badge{padding:8px 12px;border:1px solid var(--border);background:rgba(255,255,255,.035);border-radius:999px;color:#cbd5e1;font-size:12px;white-space:nowrap}
+  .panel{background:linear-gradient(145deg,rgba(22,30,48,.84),rgba(12,17,29,.76));border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow);backdrop-filter:blur(14px)}
+  .tabs{display:flex;gap:8px;padding:10px;margin-bottom:14px;overflow-x:auto}
+  .tab{border:1px solid transparent;background:rgba(255,255,255,.035);color:#b9c4d4;padding:11px 17px;border-radius:12px;cursor:pointer;font-weight:750;white-space:nowrap;transition:.2s}
+  .tab:hover{background:rgba(255,255,255,.07);color:#fff}
+  .tab.active{color:#fff;border-color:rgba(103,164,255,.65);background:linear-gradient(135deg,rgba(103,164,255,.18),rgba(139,124,255,.13));box-shadow:0 0 24px rgba(103,164,255,.1)}
+  .main{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:15px}
+  .visual-card{padding:18px;min-width:0}
+  .visual-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}
+  .visual-title{font-size:15px;font-weight:800}
+  .status{font-size:12px;color:#d5deeb;background:rgba(255,255,255,.045);border:1px solid var(--border);padding:7px 10px;border-radius:9px;text-align:right}
+  #visual{height:clamp(370px,57vh,560px);min-height:340px;position:relative;overflow:hidden;border-radius:15px;border:1px solid rgba(148,163,184,.12);background:
+    linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px),
+    rgba(4,8,17,.72);
+    background-size:32px 32px;display:flex;align-items:flex-end;justify-content:center;padding:28px 20px 48px;
+  }
+  .bars{width:100%;height:100%;display:flex;align-items:flex-end;justify-content:center;gap:clamp(3px,.55vw,8px)}
+  .bar-wrap{height:100%;flex:1;max-width:58px;display:flex;align-items:flex-end;justify-content:center;position:relative}
+  .bar{width:100%;border-radius:7px 7px 3px 3px;background:linear-gradient(180deg,#75b4ff,#416fd6);border:1px solid rgba(255,255,255,.14);box-shadow:0 5px 18px rgba(70,125,255,.16);transition:height .12s,background .12s,transform .12s}
+  .bar-value{position:absolute;bottom:-29px;font-size:11px;color:#9aa8bd}
+  .bar.compare{background:linear-gradient(180deg,#ffe38a,#f0a72e);box-shadow:0 0 22px rgba(255,201,75,.22)}
+  .bar.pointer{background:linear-gradient(180deg,#80e4ff,#319fd2)}
+  .bar.placed,.bar.found{background:linear-gradient(180deg,#71edb0,#269b68);box-shadow:0 0 20px rgba(84,224,155,.18)}
+  .bar.target{outline:2px solid var(--red);outline-offset:2px}
+  .node-area{position:absolute;inset:20px}
+  .node{position:absolute;width:58px;height:58px;border-radius:50%;display:grid;place-items:center;font-weight:850;border:2px solid rgba(255,255,255,.14);background:#18243a;box-shadow:0 8px 22px rgba(0,0,0,.28);z-index:2;transition:.18s}
+  .node.current{background:#ffc94f;color:#17120a;border-color:#ffe39a}
+  .node.visited{background:#287b5a;border-color:#68e7ae}
+  .node.path{background:#398bd1;border-color:#8ee3ff}
+  svg.graph{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+  .edge{stroke:#52627b;stroke-width:2.4;opacity:.7;transition:.2s}
+  .edge.active{stroke:#ffd35a;stroke-width:4;opacity:1}
+  .edge.visited{stroke:#54e09b;opacity:1}
+  .empty-msg{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:14px}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:13px;color:var(--muted);font-size:11px}
+  .legend span{display:flex;align-items:center;gap:6px}
+  .dot{width:9px;height:9px;border-radius:50%;background:#75b4ff}.dot.compare{background:#ffd35a}.dot.placed{background:#54e09b}.dot.pointer{background:#62d8ff}
+  .controls{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:15px}
+  .control{border:1px solid var(--border);background:rgba(255,255,255,.055);color:#e8edf5;padding:10px 14px;border-radius:11px;cursor:pointer;font-weight:750;transition:.2s}
+  .control:hover{background:rgba(255,255,255,.09);transform:translateY(-1px)}
+  .control.primary{background:linear-gradient(135deg,#5d9dff,#7169ed);border-color:transparent}
+  .speed{margin-left:auto;display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px}
+  input[type=range]{accent-color:var(--accent);width:135px}
+  .side{display:flex;flex-direction:column;gap:15px}
+  .info{padding:18px}
+  .info h2{font-size:15px;margin:0 0 9px}
+  .description{font-size:13px;line-height:1.55;color:#b9c4d4}
+  .complexity{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:13px}
+  .metric{padding:11px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--border)}
+  .metric small{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+  .metric strong{font-size:14px}
+  .metric.wide{grid-column:1/-1}
+  .code{padding:18px}
+  .code pre{margin:0;color:#cbd5e1;font:12px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap}
+  .code-title{display:flex;justify-content:space-between;margin-bottom:9px}
+  .code-title span:last-child{font-size:11px;color:var(--muted)}
+  .traversal{margin-top:12px;padding:10px;border-radius:11px;background:rgba(255,255,255,.035);color:#dbe6f5;font-size:12px;min-height:38px}
+  .footer{margin-top:15px;color:#66758b;font-size:11px;text-align:center}
+  @media(max-width:980px){
+    body{padding:13px}
+    .main{grid-template-columns:1fr}
+    .side{display:grid;grid-template-columns:1fr 1fr}
+    .code{grid-column:1/-1}
+  }
+  @media(max-width:650px){
+    .topbar{align-items:flex-start;flex-direction:column}
+    .badge{display:none}
+    .visual-card{padding:12px}
+    #visual{height:390px;padding-left:9px;padding-right:9px}
+    .side{display:flex}
+    .speed{margin-left:0;width:100%}
+    .speed input{flex:1}
+    .bar-value{font-size:9px}
+    .node{width:46px;height:46px;font-size:12px}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">Interactive CS Learning Tool</div>
+      <h1>Algorithm Visualizer</h1>
+      <div class="subtitle">Watch algorithms execute step-by-step, with complexity and live state information.</div>
+    </div>
+    <div class="badge">5 algorithms · Interactive · Responsive</div>
+  </header>
+
+  <nav class="tabs panel" id="tabs"></nav>
+
+  <section class="main">
+    <div class="visual-card panel">
+      <div class="visual-head">
+        <div class="visual-title" id="visualTitle">Bubble Sort · Array Visualization</div>
+        <div class="status" id="status">Ready</div>
+      </div>
+      <div id="visual"></div>
+      <div class="legend" id="legend">
+        <span><i class="dot"></i> Normal</span>
+        <span><i class="dot compare"></i> Comparing</span>
+        <span><i class="dot pointer"></i> Pointer</span>
+        <span><i class="dot placed"></i> Sorted / Found</span>
+      </div>
+      <div class="controls">
+        <button class="control" id="resetBtn">↻ Reset</button>
+        <button class="control primary" id="playBtn">▶ Play</button>
+        <button class="control" id="newBtn">New Data</button>
+        <div class="speed">Speed <input id="speed" type="range" min="1" max="10" value="5"><span id="speedValue">5×</span></div>
+      </div>
+    </div>
+
+    <aside class="side">
+      <div class="info panel">
+        <h2 id="algoName">Bubble Sort</h2>
+        <div class="description" id="description"></div>
+        <div class="complexity">
+          <div class="metric"><small>Best Time</small><strong id="best"></strong></div>
+          <div class="metric"><small>Average Time</small><strong id="average"></strong></div>
+          <div class="metric"><small>Worst Time</small><strong id="worst"></strong></div>
+          <div class="metric"><small>Space</small><strong id="space"></strong></div>
+          <div class="metric wide"><small>Current State</small><strong id="currentState">Ready</strong></div>
+        </div>
+        <div class="traversal" id="traversal" style="display:none"></div>
+      </div>
+
+      <div class="code panel">
+        <div class="code-title"><strong>How it works</strong><span id="stepCount">Step 0</span></div>
+        <pre id="pseudo"></pre>
+      </div>
+    </aside>
+  </section>
+
+  <div class="footer">Built as a visual learning tool · Time and space complexities describe standard implementations.</div>
+</div>
+
+<script>
+const DATA = {
+  bubble:{
+    name:"Bubble Sort", type:"sort",
+    desc:"Repeatedly compares adjacent elements and swaps them when they are in the wrong order. After each pass, the largest remaining value moves toward the end.",
+    best:"O(n)", average:"O(n²)", worst:"O(n²)", space:"O(1)",
+    pseudo:`for each pass:
+  compare adjacent values
+  if left > right:
+    swap them
+  repeat until sorted`
+  },
+  merge:{
+    name:"Merge Sort", type:"sort",
+    desc:"Divides the array into smaller halves, recursively sorts them, and merges the sorted halves into one ordered array.",
+    best:"O(n log n)", average:"O(n log n)", worst:"O(n log n)", space:"O(n)",
+    pseudo:`split array into halves
+recursively sort each half
+merge two sorted halves
+repeat until fully sorted`
+  },
+  binary:{
+    name:"Binary Search", type:"search",
+    desc:"Searches a sorted array by repeatedly checking the middle element and discarding the half that cannot contain the target.",
+    best:"O(1)", average:"O(log n)", worst:"O(log n)", space:"O(1)",
+    pseudo:`low = 0, high = n - 1
+while low <= high:
+  mid = middle index
+  compare value with target
+  discard one half`
+  },
+  bfs:{
+    name:"BFS", type:"graph",
+    desc:"Breadth-First Search explores a graph level by level. It uses a queue and visits each reachable vertex and edge systematically.",
+    best:"O(V + E)", average:"O(V + E)", worst:"O(V + E)", space:"O(V)",
+    pseudo:`queue = [start]
+mark start visited
+while queue not empty:
+  take front node
+  visit unvisited neighbors
+  add them to queue`
+  },
+  dfs:{
+    name:"DFS", type:"graph",
+    desc:"Depth-First Search follows one branch as far as possible before backtracking. It can be implemented with recursion or an explicit stack.",
+    best:"O(V + E)", average:"O(V + E)", worst:"O(V + E)", space:"O(V)",
+    pseudo:`stack = [start]
+while stack not empty:
+  take a node
+  if unvisited:
+    mark visited
+    push its neighbors`
+  }
+};
+
+const keys = Object.keys(DATA);
+let algorithm = "bubble";
+let data = [];
+let steps = [];
+let stepIndex = 0;
+let playing = false;
+let timer = null;
+let graphEdges = [];
+let graphNodes = [];
+let traversal = [];
+
+const $ = id => document.getElementById(id);
+
+function makeData(){
+  data = Array.from({length:18},()=>Math.floor(Math.random()*82)+12);
+}
+function makeSortedData(){
+  data = Array.from({length:18},(_,i)=>i*5+15);
+}
+function setTabs(){
+  $("tabs").innerHTML = keys.map(k=>`<button class="tab ${k===algorithm?'active':''}" data-a="${k}">${DATA[k].name}</button>`).join("");
+  document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>selectAlgorithm(b.dataset.a));
+}
+function updateInfo(){
+  const d=DATA[algorithm];
+  $("algoName").textContent=d.name;
+  $("description").textContent=d.desc;
+  $("best").textContent=d.best;
+  $("average").textContent=d.average;
+  $("worst").textContent=d.worst;
+  $("space").textContent=d.space;
+  $("pseudo").textContent=d.pseudo;
+  $("visualTitle").textContent=d.name+" · "+(d.type==="sort"?"Array Visualization":d.type==="search"?"Search Visualization":"Graph Visualization");
+}
+function selectAlgorithm(k){
+  stop();
+  algorithm=k;
+  stepIndex=0;
+  traversal=[];
+  if(k==="binary") makeSortedData(); else makeData();
+  buildSteps();
+  setTabs();
+  updateInfo();
+  render();
+}
+function reset(){
+  stop(); stepIndex=0; traversal=[]; buildSteps(); render();
+}
+function newData(){
+  stop(); stepIndex=0; traversal=[];
+  if(algorithm==="binary") makeSortedData(); else makeData();
+  buildSteps(); render();
+}
+function delay(){
+  const speed=Number($("speed").value);
+  return 900 - speed*78;
+}
+$("speed").oninput=()=> $("speedValue").textContent=$("speed").value+"×";
+
+function buildSteps(){
+  steps=[];
+  if(DATA[algorithm].type==="sort") buildSortSteps();
+  else if(algorithm==="binary") buildBinarySteps();
+  else buildGraphSteps();
+  if(!steps.length) steps=[{}];
+}
+function snap(arr,state={}){return {arr:[...arr],...state}}
+function buildSortSteps(){
+  let a=[...data];
+  if(algorithm==="bubble"){
+    let n=a.length;
+    for(let end=n-1;end>0;end--){
+      let swapped=false;
+      for(let j=0;j<end;j++){
+        steps.push(snap(a,{compare:[j,j+1],placed:Array.from({length:n-end},(_,i)=>n-1-i),status:`Comparing index ${j} and ${j+1}`}));
+        if(a[j]>a[j+1]){
+          [a[j],a[j+1]]=[a[j+1],a[j]];
+          swapped=true;
+          steps.push(snap(a,{compare:[j,j+1],placed:Array.from({length:n-end},(_,i)=>n-1-i),status:`Swapped ${j} and ${j+1}`}));
+        }
+      }
+      if(!swapped) break;
+    }
+    steps.push(snap(a,{placed:Array.from({length:n},(_,i)=>i),status:"Array sorted"}));
+  } else {
+    const temp=new Array(a.length);
+    const placed=[];
+    function merge(l,m,r){
+      let i=l,j=m+1,k=l;
+      while(i<=m&&j<=r){
+        steps.push(snap(a,{compare:[i,j],status:`Comparing index ${i} and ${j}`}));
+        if(a[i]<=a[j]) temp[k++]=a[i++]; else temp[k++]=a[j++];
+      }
+      while(i<=m) temp[k++]=a[i++];
+      while(j<=r) temp[k++]=a[j++];
+      for(let x=l;x<=r;x++) a[x]=temp[x];
+      for(let x=l;x<=r;x++) placed.push(x);
+      steps.push(snap(a,{placed:[...placed],status:`Merged indices ${l}–${r}`}));
+    }
+    function sort(l,r){if(l>=r)return;let m=Math.floor((l+r)/2);sort(l,m);sort(m+1,r);merge(l,m,r)}
+    sort(0,a.length-1);
+    steps.push(snap(a,{placed:Array.from({length:a.length},(_,i)=>i),status:"Array sorted"}));
+  }
+}
+function buildBinarySteps(){
+  const target=data[Math.floor(Math.random()*data.length)];
+  let lo=0,hi=data.length-1;
+  while(lo<=hi){
+    const mid=Math.floor((lo+hi)/2);
+    steps.push(snap(data,{low:lo,mid,high:hi,target,status:`Checking middle index ${mid} for target ${target}`}));
+    if(data[mid]===target){
+      steps.push(snap(data,{low:lo,mid,high:hi,target,found:mid,status:`Found ${target} at index ${mid}`}));
+      return;
+    }
+    if(data[mid]<target) lo=mid+1; else hi=mid-1;
+  }
+  steps.push(snap(data,{low:lo,high:hi,target,notFound:true,status:`Target ${target} was not found`}));
+}
+function makeGraph(){
+  graphNodes=[
+    {id:0,x:18,y:22},{id:1,x:45,y:15},{id:2,x:72,y:22},
+    {id:3,x:30,y:48},{id:4,x:60,y:47},{id:5,x:86,y:49},
+    {id:6,x:18,y:77},{id:7,x:47,y:75},{id:8,x:74,y:78}
+  ];
+  graphEdges=[[0,1],[0,3],[1,2],[1,3],[1,4],[2,5],[3,4],[3,6],[3,7],[4,5],[4,7],[5,8],[6,7],[7,8]];
+}
+function buildGraphSteps(){
+  makeGraph();
+  let adj=Array.from({length:graphNodes.length},()=>[]);
+  graphEdges.forEach(([a,b])=>{adj[a].push(b);adj[b].push(a)});
+  const start=0, visited=new Set(), order=[], edgeSeen=new Set();
+  if(algorithm==="bfs"){
+    const q=[start];visited.add(start);
+    while(q.length){
+      const u=q.shift(); order.push(u);
+      steps.push({node:u,visited:[...visited],order:[...order],activeEdges:[],status:`Visiting node ${u}`});
+      for(const v of adj[u]){
+        const key=[Math.min(u,v),Math.max(u,v)].join("-");
+        if(!visited.has(v)){
+          visited.add(v);q.push(v);
+          steps.push({node:u,visited:[...visited],order:[...order],activeEdges:[key],status:`Discovered node ${v} from ${u}`});
+        }
+      }
+    }
+  } else {
+    const stack=[start];
+    while(stack.length){
+      const u=stack.pop();
+      if(visited.has(u)) continue;
+      visited.add(u);order.push(u);
+      steps.push({node:u,visited:[...visited],order:[...order],activeEdges:[],status:`Visiting node ${u}`});
+      for(let i=adj[u].length-1;i>=0;i--){
+        const v=adj[u][i];
+        if(!visited.has(v)){
+          const key=[Math.min(u,v),Math.max(u,v)].join("-");
+          stack.push(v);
+          steps.push({node:u,visited:[...visited],order:[...order],activeEdges:[key],status:`Exploring edge ${u} → ${v}`});
+        }
+      }
+    }
+  }
+  steps.push({visited:[...visited],order:[...order],status:`Traversal complete · ${order.join(" → ")}`});
+}
+function render(){
+  const s=steps[Math.min(stepIndex,steps.length-1)]||{};
+  $("status").textContent=s.status||"Ready";
+  $("currentState").textContent=s.status||"Ready";
+  $("stepCount").textContent=`Step ${Math.min(stepIndex+1,steps.length)} / ${steps.length}`;
+  if(DATA[algorithm].type==="sort") renderBars(s);
+  else if(algorithm==="binary") renderBars(s,true);
+  else renderGraph(s);
+  if(DATA[algorithm].type==="graph"){
+    $("traversal").style.display="block";
+    $("traversal").textContent="Traversal: "+((s.order||[]).join(" → ")||"—");
+  }else $("traversal").style.display="none";
+  $("playBtn").textContent=playing?"⏸ Pause":"▶ Play";
+}
+function renderBars(s,isSearch=false){
+  $("visual").innerHTML=`<div class="bars">${s.arr.map((v,i)=>{
+    const max=Math.max(...s.arr,100);
+    let cls="";
+    if((s.compare||[]).includes(i)) cls+=" compare";
+    if((s.placed||[]).includes(i)) cls+=" placed";
+    if(isSearch && [s.low,s.mid,s.high].includes(i)) cls+=" pointer";
+    if(isSearch && i===s.found) cls+=" found";
+    if(isSearch && i===s.targetIndex) cls+=" target";
+    return `<div class="bar-wrap"><div class="bar${cls}" style="height:${Math.max(7,(v/max)*90)}%"></div><div class="bar-value">${v}</div></div>`;
+  }).join("")}</div>`;
+}
+function renderGraph(s){
+  const v=graphNodes;
+  $("visual").innerHTML=`<svg class="graph" viewBox="0 0 100 100" preserveAspectRatio="none">${
+    graphEdges.map(([a,b])=>{
+      const key=[Math.min(a,b),Math.max(a,b)].join("-");
+      const active=(s.activeEdges||[]).includes(key);
+      const visited=(s.visited||[]).includes(a)&&(s.visited||[]).includes(b);
+      return `<line class="edge ${active?'active':''} ${visited?'visited':''}" x1="${v[a].x}" y1="${v[a].y}" x2="${v[b].x}" y2="${v[b].y}"/>`;
+    }).join("")
+  }</svg>${v.map(n=>`<div class="node ${(s.visited||[]).includes(n.id)?'visited':''} ${s.node===n.id?'current':''}" style="left:calc(${n.x}% - 29px);top:calc(${n.y}% - 29px)">${n.id}</div>`).join("")}`;
+}
+function tick(){
+  if(!playing)return;
+  if(stepIndex>=steps.length-1){stop();return}
+  stepIndex++;
+  render();
+  timer=setTimeout(tick,delay());
+}
+function play(){
+  if(playing){stop();return}
+  if(stepIndex>=steps.length-1) stepIndex=0;
+  playing=true; render(); timer=setTimeout(tick,delay());
+}
+function stop(){
+  playing=false;
+  if(timer)clearTimeout(timer);
+  timer=null;
+  $("playBtn").textContent="▶ Play";
+}
+$("playBtn").onclick=play;
+$("resetBtn").onclick=reset;
+$("newBtn").onclick=newData;
+
+selectAlgorithm("bubble");
+</script>
+</body>
+</html>
